@@ -15,6 +15,8 @@ Usage:
   python gen_batch.py --ids 041-050           # pick objects by number: ranges and/or lists, e.g. 041-045,052,060
   python gen_batch.py --batch batch_02 --force  # regenerate
   python gen_batch.py --all --backend api --model claude-sonnet-5
+Models: Opus 5.5 by default; if a call fails, it is retried once with Fable 5.1
+  (change with --model / --fallback-model; --fallback-model "" turns the retry off).
 Then: python catalog.py   (rebuilds the combined record for all batches)
 """
 import argparse, csv, json, os, re, subprocess, sys, time
@@ -62,8 +64,11 @@ def run_claude_code(full_prompt, model):
     if p.returncode != 0 and not p.stdout.strip():
         raise RuntimeError(p.stderr[-2000:])
     data = json.loads(p.stdout)
+    if data.get("is_error"):
+        raise RuntimeError(str(data.get("result") or data.get("subtype") or "claude reported an error"))
     u = data.get("usage", {}) or {}
     return {"text": data.get("result", ""), "raw": data,
+            "model": ",".join(data.get("modelUsage", {})) or model,
             "input_tokens": u.get("input_tokens", 0), "output_tokens": u.get("output_tokens", 0),
             "cache_creation_tokens": u.get("cache_creation_input_tokens", 0),
             "cache_read_tokens": u.get("cache_read_input_tokens", 0),
@@ -82,6 +87,7 @@ def run_api(full_prompt, model):
     pin, pout = float(os.getenv("PRICE_IN_PER_MTOK", "0")), float(os.getenv("PRICE_OUT_PER_MTOK", "0"))
     cost = (u.input_tokens * pin + u.output_tokens * pout) / 1e6 if (pin or pout) else None
     return {"text": "".join(b.text for b in msg.content if b.type == "text"), "raw": msg.model_dump(),
+            "model": msg.model,
             "input_tokens": u.input_tokens, "output_tokens": u.output_tokens,
             "cache_creation_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
             "cache_read_tokens": getattr(u, "cache_read_input_tokens", 0) or 0,
@@ -99,9 +105,17 @@ def process(item, args):
     oid, batch = item["id"], item["batch"]
     d = batch_dirs(batch)
     row = {"id": oid, "batch": batch, "category": item.get("category", ""), "backend": args.backend,
-           "model": args.model or "default", "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")}
+           "model": args.model, "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")}
     try:
-        r = (run_claude_code if args.backend == "claude" else run_api)(SPEC.format(prompt=item["prompt"]), args.model)
+        run = run_claude_code if args.backend == "claude" else run_api
+        try:
+            r = run(SPEC.format(prompt=item["prompt"]), args.model)
+        except Exception as e:
+            if not args.fallback_model:
+                raise
+            print(f"[fallback] {batch}/{oid}: {args.model} failed ({str(e)[:80]}), retrying with {args.fallback_model}")
+            r = run(SPEC.format(prompt=item["prompt"]), args.fallback_model)
+        row["model"] = r["model"]
         (d / "logs" / f"{oid}.json").write_text(json.dumps(r["raw"], indent=2, default=str))
         html = extract_html(r["text"])
         if html:
@@ -183,13 +197,13 @@ def main():
     g.add_argument("--all", action="store_true", help="all prompt files in prompts/")
     g.add_argument("--list", action="store_true", help="list batches/objects and done status, then exit")
     ap.add_argument("--backend", choices=["claude", "api"], default="claude")
-    ap.add_argument("--model", default=None, help="e.g. claude-sonnet-5, claude-opus-5-5")
+    ap.add_argument("--model", default="claude-opus-5-5", help="primary model (default: claude-opus-5-5)")
+    ap.add_argument("--fallback-model", default="claude-fable-5-1",
+                    help='used if the primary model fails (default: claude-fable-5-1; "" to disable)')
     ap.add_argument("--jobs", type=int, default=3)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
-    if args.backend == "api" and not args.model:
-        sys.exit("--model is required for the api backend")
 
     if args.list:
         return show_list()
