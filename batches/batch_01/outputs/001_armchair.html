@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mid-Century Modern Armchair — three.js</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #ece6dc; font-family: system-ui, sans-serif; }
+  canvas { display: block; }
+  #label {
+    position: fixed; left: 16px; bottom: 14px; color: #6b5d4d; font-size: 13px;
+    letter-spacing: 0.04em; user-select: none; pointer-events: none;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="label">Mid-Century Modern Armchair · drag to orbit, scroll to zoom</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// ---------- Renderer / Scene / Camera ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xece6dc);
+scene.fog = new THREE.Fog(0xece6dc, 5, 12);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.05, 50);
+camera.position.set(1.55, 1.15, 1.75);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.42, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 0.9;
+controls.maxDistance = 5;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.update();
+
+// ---------- Lighting ----------
+const hemi = new THREE.HemisphereLight(0xfff6e8, 0x9a8c7a, 0.45);
+scene.add(hemi);
+
+const key = new THREE.DirectionalLight(0xfff1dc, 2.2);
+key.position.set(2.2, 3.8, 2.4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -1.4;
+key.shadow.camera.right = 1.4;
+key.shadow.camera.top = 1.4;
+key.shadow.camera.bottom = -1.4;
+key.shadow.camera.near = 0.5;
+key.shadow.camera.far = 10;
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.02;
+key.shadow.radius = 5;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xdfe8ff, 0.55);
+fill.position.set(-2.5, 1.8, -1.0);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+rim.position.set(-0.5, 2.0, -3.0);
+scene.add(rim);
+
+// ---------- Environment: floor + soft backdrop ----------
+const env = new THREE.Group();
+env.name = 'Environment';
+scene.add(env);
+
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(12, 64),
+  new THREE.MeshStandardMaterial({ color: 0xe4ddd1, roughness: 0.95, metalness: 0 })
+);
+floor.name = 'Floor';
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+env.add(floor);
+
+// curved cyclorama backdrop
+const backdropGeo = new THREE.CylinderGeometry(6, 6, 6, 64, 1, true, Math.PI * 0.75, Math.PI * 1.5);
+const backdrop = new THREE.Mesh(
+  backdropGeo,
+  new THREE.MeshStandardMaterial({ color: 0xede7dd, roughness: 1, side: THREE.BackSide })
+);
+backdrop.name = 'Backdrop';
+backdrop.position.y = 3;
+env.add(backdrop);
+
+// ---------- Materials ----------
+function makeWoodTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 512, 0);
+  g.addColorStop(0, '#5e3820');
+  g.addColorStop(0.5, '#6d4328');
+  g.addColorStop(1, '#5a351f');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 512, 512);
+  // fine grain lines
+  for (let i = 0; i < 260; i++) {
+    const x0 = Math.random() * 512;
+    const amp = 2 + Math.random() * 6;
+    const freq = 0.004 + Math.random() * 0.01;
+    const phase = Math.random() * Math.PI * 2;
+    const dark = Math.random() < 0.7;
+    ctx.strokeStyle = dark
+      ? `rgba(40,22,12,${0.08 + Math.random() * 0.22})`
+      : `rgba(150,100,65,${0.05 + Math.random() * 0.12})`;
+    ctx.lineWidth = 0.5 + Math.random() * 1.8;
+    ctx.beginPath();
+    for (let y = 0; y <= 512; y += 8) {
+      const x = x0 + Math.sin(y * freq + phase) * amp;
+      if (y === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // a few broad figure streaks
+  for (let i = 0; i < 10; i++) {
+    const x0 = Math.random() * 512;
+    ctx.strokeStyle = `rgba(35,18,8,${0.06 + Math.random() * 0.08})`;
+    ctx.lineWidth = 6 + Math.random() * 14;
+    ctx.beginPath();
+    for (let y = 0; y <= 512; y += 8) {
+      const x = x0 + Math.sin(y * 0.012 + i) * 10;
+      if (y === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+const woodTexV = makeWoodTexture();              // grain runs along V
+const woodTexH = woodTexV.clone();                // grain runs along U
+woodTexH.center.set(0.5, 0.5);
+woodTexH.rotation = Math.PI / 2;
+woodTexH.needsUpdate = true;
+
+const woodMatV = new THREE.MeshPhysicalMaterial({
+  name: 'Walnut (vertical grain)', map: woodTexV, roughness: 0.42, metalness: 0,
+  clearcoat: 0.35, clearcoatRoughness: 0.35
+});
+const woodMatH = woodMatV.clone();
+woodMatH.name = 'Walnut (horizontal grain)';
+woodMatH.map = woodTexH;
+
+const brassMat = new THREE.MeshStandardMaterial({
+  name: 'Brushed Brass', color: 0xc9a25a, metalness: 1, roughness: 0.32
+});
+
+const fabricMat = new THREE.MeshPhysicalMaterial({
+  name: 'Mustard Fabric',
+  color: 0xc9971c,
+  roughness: 0.88,
+  metalness: 0,
+  sheen: 1,
+  sheenColor: new THREE.Color(0xffd970),
+  sheenRoughness: 0.55
+});
+
+const buttonMat = new THREE.MeshPhysicalMaterial({
+  name: 'Fabric Button',
+  color: 0xa77a12,
+  roughness: 0.75,
+  sheen: 0.6,
+  sheenColor: new THREE.Color(0xffd970)
+});
+
+// ---------- Helpers ----------
+const UP = new THREE.Vector3(0, 1, 0);
+
+// Tapered cylinder from point a (radius ra) to point b (radius rb)
+function taperedCylinder(name, a, b, ra, rb, mat, radial = 24) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  const geo = new THREE.CylinderGeometry(rb, ra, len, radial, 1);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.name = name;
+  mesh.position.copy(a).addScaledVector(dir, 0.5);
+  mesh.quaternion.setFromUnitVectors(UP, dir.normalize());
+  return mesh;
+}
+
+function roundedBox(name, w, h, d, r, mat, pos) {
+  const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, r), mat);
+  mesh.name = name;
+  mesh.position.copy(pos);
+  return mesh;
+}
+
+// Pillowy cushion with button tufting on its +Y face
+function makeCushion(name, w, h, d, opts = {}) {
+  const {
+    bulge = 0.018,
+    tufts = [],
+    tuftDepth = 0.012,
+    tuftRadius = 0.035
+  } = opts;
+  const hw = w / 2, hh = h / 2, hd = d / 2;
+
+  const displace = (x, y, z, out) => {
+    const nx = x / hw, ny = y / hh, nz = z / hd;
+    const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+    const sx = Math.pow(ax, 6), sz = Math.pow(az, 6);
+    const edgeY = ay * ay * ay;
+    let X = x, Y = y, Z = z;
+
+    // soften top/bottom perimeter edges
+    X -= Math.sign(x) * hh * 0.5 * edgeY * sx;
+    Z -= Math.sign(z) * hh * 0.5 * edgeY * sz;
+
+    // round corners in plan
+    const corner = sx * sz;
+    X -= Math.sign(x) * hh * 0.4 * corner;
+    Z -= Math.sign(z) * hh * 0.4 * corner;
+
+    // puffy faces (bottom puffs less)
+    const fx = 1 - nx * nx, fz = 1 - nz * nz;
+    Y += ny * bulge * fx * fz * (ny > 0 ? 1 : 0.35);
+
+    // gently bulging side walls
+    const side = 1 - ny * ny;
+    X += Math.sign(x) * hh * 0.16 * side * Math.pow(ax, 4) * (1 - Math.pow(az, 8));
+    Z += Math.sign(z) * hh * 0.16 * side * Math.pow(az, 4) * (1 - Math.pow(ax, 8));
+
+    // button tufting dimples
+    if (ny > 0 && tufts.length) {
+      let s = 0;
+      for (const [u, v] of tufts) {
+        const dx = x - u * hw, dz = z - v * hd;
+        s += Math.exp(-(dx * dx + dz * dz) / (tuftRadius * tuftRadius));
+      }
+      Y -= tuftDepth * Math.min(s, 1.2) * ny;
+    }
+    out.set(X, Y, Z);
+  };
+
+  let geo = new THREE.BoxGeometry(w, h, d, 64, 8, 64);
+  const pos = geo.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    displace(pos.getX(i), pos.getY(i), pos.getZ(i), v);
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.deleteAttribute('normal');
+  geo.deleteAttribute('uv');
+  geo = mergeVertices(geo, 1e-5);
+  geo.computeVertexNormals();
+
+  const group = new THREE.Group();
+  group.name = name;
+
+  const body = new THREE.Mesh(geo, fabricMat);
+  body.name = `${name} Body`;
+  group.add(body);
+
+  if (tufts.length) {
+    const buttons = new THREE.Group();
+    buttons.name = `${name} Buttons`;
+    const btnGeo = new THREE.SphereGeometry(0.011, 18, 12);
+    tufts.forEach(([u, vv], i) => {
+      const p = new THREE.Vector3();
+      displace(u * hw, hh, vv * hd, p);
+      const b = new THREE.Mesh(btnGeo, buttonMat);
+      b.name = `Button ${i + 1}`;
+      b.scale.set(1, 0.45, 1);
+      b.position.set(p.x, p.y - 0.001, p.z);
+      buttons.add(b);
+    });
+    group.add(buttons);
+  }
+  return group;
+}
+
+// ---------- Armchair ----------
+const chair = new THREE.Group();
+chair.name = 'MidCenturyArmchair';
+scene.add(chair);
+
+const SEAT_Y = 0.38;          // top of seat rails
+const RECLINE = THREE.MathUtils.degToRad(15);
+
+// --- Legs ---
+const legs = new THREE.Group();
+legs.name = 'Legs';
+chair.add(legs);
+
+const legDefs = [
+  { name: 'Front Left Leg',  top: [-0.30, SEAT_Y - 0.01,  0.26], foot: [-0.355, 0,  0.33] },
+  { name: 'Front Right Leg', top: [ 0.30, SEAT_Y - 0.01,  0.26], foot: [ 0.355, 0,  0.33] },
+  { name: 'Back Left Leg',   top: [-0.30, SEAT_Y - 0.01, -0.26], foot: [-0.355, 0, -0.35] },
+  { name: 'Back Right Leg',  top: [ 0.30, SEAT_Y - 0.01, -0.26], foot: [ 0.355, 0, -0.35] }
+];
+for (const def of legDefs) {
+  const leg = new THREE.Group();
+  leg.name = def.name;
+  const foot = new THREE.Vector3(...def.foot);
+  const top = new THREE.Vector3(...def.top);
+  leg.add(taperedCylinder(`${def.name} Shaft`, foot, top, 0.011, 0.023, woodMatV));
+  // brass sabot on the foot
+  const capTop = foot.clone().lerp(top, 0.1);
+  leg.add(taperedCylinder(`${def.name} Brass Sabot`, foot.clone().setY(0.001), capTop, 0.0118, 0.0138, brassMat));
+  legs.add(leg);
+}
+
+// --- Seat frame ---
+const seatFrame = new THREE.Group();
+seatFrame.name = 'Seat Frame';
+chair.add(seatFrame);
+const railH = 0.07, railT = 0.04, railY = SEAT_Y - railH / 2;
+seatFrame.add(roundedBox('Front Rail', 0.70, railH, railT, 0.012, woodMatH, new THREE.Vector3(0, railY, 0.30)));
+seatFrame.add(roundedBox('Back Rail', 0.70, railH, railT, 0.012, woodMatH, new THREE.Vector3(0, railY, -0.28)));
+seatFrame.add(roundedBox('Left Side Rail', railT, railH, 0.62, 0.012, woodMatV, new THREE.Vector3(-0.33, railY, 0.01)));
+seatFrame.add(roundedBox('Right Side Rail', railT, railH, 0.62, 0.012, woodMatV, new THREE.Vector3(0.33, railY, 0.01)));
+// hidden-ish support slats under cushion
+for (let i = 0; i < 4; i++) {
+  const z = -0.2 + i * 0.14;
+  seatFrame.add(roundedBox(`Support Slat ${i + 1}`, 0.64, 0.015, 0.06, 0.005, woodMatH, new THREE.Vector3(0, SEAT_Y - 0.02, z)));
+}
+
+// --- Armrests ---
+const armrests = new THREE.Group();
+armrests.name = 'Armrests';
+chair.add(armrests);
+const ARM_Y = 0.615;
+for (const side of [-1, 1]) {
+  const arm = new THREE.Group();
+  arm.name = side < 0 ? 'Left Armrest' : 'Right Armrest';
+  const x = side * 0.352;
+  // sculpted arm pad
+  const pad = roundedBox(`${arm.name} Pad`, 0.068, 0.03, 0.70, 0.013, woodMatV, new THREE.Vector3(x, ARM_Y, -0.02));
+  arm.add(pad);
+  // tapered front post
+  arm.add(taperedCylinder(
+    `${arm.name} Front Post`,
+    new THREE.Vector3(x, SEAT_Y - 0.02, 0.245),
+    new THREE.Vector3(x, ARM_Y - 0.005, 0.275),
+    0.02, 0.016, woodMatV
+  ));
+  armrests.add(arm);
+}
+
+// --- Backrest (reclined) ---
+const backrest = new THREE.Group();
+backrest.name = 'Backrest';
+backrest.position.set(0, SEAT_Y - 0.02, -0.29);
+backrest.rotation.x = -RECLINE;
+chair.add(backrest);
+
+const backFrame = new THREE.Group();
+backFrame.name = 'Back Frame';
+backrest.add(backFrame);
+for (const side of [-1, 1]) {
+  backFrame.add(roundedBox(
+    side < 0 ? 'Left Back Upright' : 'Right Back Upright',
+    0.045, 0.68, 0.04, 0.013, woodMatV, new THREE.Vector3(side * 0.33, 0.30, 0)
+  ));
+}
+backFrame.add(roundedBox('Back Top Rail', 0.70, 0.055, 0.035, 0.014, woodMatH, new THREE.Vector3(0, 0.62, -0.005)));
+backFrame.add(roundedBox('Back Lower Rail', 0.66, 0.045, 0.03, 0.01, woodMatH, new THREE.Vector3(0, 0.14, -0.005)));
+
+const backCushion = makeCushion('Back Cushion', 0.60, 0.10, 0.50, {
+  bulge: 0.02,
+  tufts: [
+    [-0.5, -0.38], [0, -0.38], [0.5, -0.38],
+    [-0.5,  0.32], [0,  0.32], [0.5,  0.32]
+  ],
+  tuftDepth: 0.011,
+  tuftRadius: 0.032
+});
+backCushion.rotation.x = Math.PI / 2;    // tufted face points forward (+Z)
+backCushion.position.set(0, 0.40, 0.068);
+backrest.add(backCushion);
+
+// --- Seat cushion ---
+const seatCushion = makeCushion('Seat Cushion', 0.60, 0.115, 0.58, {
+  bulge: 0.022,
+  tufts: [
+    [-0.5, -0.3], [0, -0.3], [0.5, -0.3],
+    [-0.5,  0.35], [0,  0.35], [0.5,  0.35]
+  ],
+  tuftDepth: 0.012,
+  tuftRadius: 0.034
+});
+seatCushion.position.set(0, SEAT_Y + 0.055, 0.035);
+seatCushion.rotation.x = -THREE.MathUtils.degToRad(3); // front slightly raised
+chair.add(seatCushion);
+
+// shadows
+chair.traverse((o) => {
+  if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+});
+
+// ---------- Resize ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- Loop ----------
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

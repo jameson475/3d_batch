@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Articulated Desk Lamp – three.js</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #15171b; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; }
+  #panel {
+    position: absolute; top: 16px; left: 16px; width: 260px;
+    background: rgba(20, 22, 26, 0.78); backdrop-filter: blur(6px);
+    color: #e8e3da; padding: 14px 16px 10px; border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4); font-size: 13px; user-select: none;
+  }
+  #panel h1 { font-size: 14px; margin: 0 0 10px; font-weight: 600; letter-spacing: 0.03em; color: #ffcf8a; }
+  .row { margin-bottom: 10px; }
+  .row label { display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .row label span { color: #ffcf8a; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #ffb45a; }
+  #hint { font-size: 11px; opacity: 0.6; margin-top: 4px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="panel">
+  <h1>Articulated Desk Lamp</h1>
+  <div class="row"><label>Base swivel <span id="v-yaw"></span></label><input id="yaw" type="range" min="-180" max="180" step="1" value="0"></div>
+  <div class="row"><label>Shoulder joint <span id="v-shoulder"></span></label><input id="shoulder" type="range" min="-45" max="60" step="1" value="20"></div>
+  <div class="row"><label>Elbow joint <span id="v-elbow"></span></label><input id="elbow" type="range" min="-155" max="-30" step="1" value="-115"></div>
+  <div class="row"><label>Shade tilt <span id="v-wrist"></span></label><input id="wrist" type="range" min="-150" max="30" step="1" value="-85"></div>
+  <div class="row"><label>Bulb brightness <span id="v-light"></span></label><input id="light" type="range" min="0" max="80" step="1" value="30"></div>
+  <div id="hint">Drag to orbit · scroll to zoom · right-drag to pan</div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---------- Renderer / scene / camera ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x15171b);
+scene.fog = new THREE.Fog(0x15171b, 18, 40);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(6.5, 5.2, 8.5);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.4, 2.0, 0);
+controls.enableDamping = true;
+controls.minDistance = 3;
+controls.maxDistance = 25;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+// ---------- Ambient / key lighting (kept dim so the lamp dominates) ----------
+const hemi = new THREE.HemisphereLight(0xbfd0ff, 0x2a2018, 0.35);
+scene.add(hemi);
+
+const keyLight = new THREE.DirectionalLight(0xcfd8ff, 0.55);
+keyLight.position.set(-5, 10, 6);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -8;
+keyLight.shadow.camera.right = 8;
+keyLight.shadow.camera.top = 8;
+keyLight.shadow.camera.bottom = -8;
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 30;
+keyLight.shadow.bias = -0.0005;
+keyLight.shadow.radius = 4;
+scene.add(keyLight);
+
+// ---------- Materials ----------
+const M = {
+  enamel: new THREE.MeshPhysicalMaterial({ color: 0xa8231c, roughness: 0.38, metalness: 0.2, clearcoat: 0.7, clearcoatRoughness: 0.2 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.9, roughness: 0.28 }),
+  darkMetal: new THREE.MeshStandardMaterial({ color: 0x2a2c30, metalness: 0.7, roughness: 0.4 }),
+  chrome: new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1.0, roughness: 0.12 }),
+  spring: new THREE.MeshStandardMaterial({ color: 0xb8bcc2, metalness: 0.95, roughness: 0.25 }),
+  rubber: new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.0, roughness: 0.9 }),
+  lining: new THREE.MeshStandardMaterial({ color: 0xf3e6cf, metalness: 0.0, roughness: 0.55, emissive: 0xffb060, emissiveIntensity: 0.05, side: THREE.DoubleSide }),
+  bulb: new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffcf8a, emissiveIntensity: 3, roughness: 0.2 }),
+  floor: new THREE.MeshStandardMaterial({ color: 0x4a3b2e, roughness: 0.75, metalness: 0.0 }),
+  wall: new THREE.MeshStandardMaterial({ color: 0x2b2d33, roughness: 0.95, metalness: 0.0 }),
+  bookCover: new THREE.MeshStandardMaterial({ color: 0x23466b, roughness: 0.6 }),
+  paper: new THREE.MeshStandardMaterial({ color: 0xf1ebdd, roughness: 0.9 }),
+  ceramic: new THREE.MeshPhysicalMaterial({ color: 0xe9e4da, roughness: 0.25, clearcoat: 0.5 }),
+  cable: new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.6 })
+};
+M.enamelShade = M.enamel.clone();
+M.enamelShade.side = THREE.DoubleSide;
+M.enamelShade.shadowSide = THREE.DoubleSide;
+
+// ---------- Helpers ----------
+function mk(geo, mat, name, cast = true, receive = true) {
+  const m = new THREE.Mesh(geo, mat);
+  m.name = name || '';
+  m.castShadow = cast;
+  m.receiveShadow = receive;
+  return m;
+}
+// cylinder aligned with Z axis (hinge axle)
+function axleZ(radius, length, mat, name) {
+  const m = mk(new THREE.CylinderGeometry(radius, radius, length, 28), mat, name);
+  m.rotation.x = Math.PI / 2;
+  return m;
+}
+// rod along +Y from y=0 to y=len
+function rodY(len, radius, x, z, mat, name) {
+  const m = mk(new THREE.CylinderGeometry(radius, radius, len, 16), mat, name);
+  m.position.set(x, len / 2, z);
+  return m;
+}
+// hinge = axle + two knobs
+function hinge(name, radius, length, knobR, parent) {
+  const g = new THREE.Group();
+  g.name = name;
+  g.add(axleZ(radius, length, M.darkMetal, name + '_axle'));
+  for (const s of [-1, 1]) {
+    const knob = axleZ(knobR, 0.07, M.chrome, name + '_knob');
+    knob.position.z = s * (length / 2 + 0.03);
+    g.add(knob);
+    const cap = axleZ(knobR * 0.55, 0.03, M.darkMetal, name + '_cap');
+    cap.position.z = s * (length / 2 + 0.075);
+    g.add(cap);
+  }
+  parent.add(g);
+  return g;
+}
+// peg for spring attachment + anchor point
+function springPeg(parent, x, y, zFrom, zTo, name) {
+  const len = Math.abs(zTo - zFrom);
+  const peg = axleZ(0.025, len + 0.02, M.darkMetal, name + '_peg');
+  peg.position.set(x, y, (zFrom + zTo) / 2);
+  parent.add(peg);
+  const anchor = new THREE.Object3D();
+  anchor.name = name + '_anchor';
+  anchor.position.set(x, y, zTo - Math.sign(zTo) * 0.02);
+  parent.add(anchor);
+  return anchor;
+}
+
+// ---------- Environment: desk + backdrop ----------
+const environment = new THREE.Group();
+environment.name = 'Environment';
+scene.add(environment);
+
+const floor = mk(new THREE.PlaneGeometry(60, 60), M.floor, 'DeskSurface', false, true);
+floor.rotation.x = -Math.PI / 2;
+environment.add(floor);
+
+const wall = mk(new THREE.PlaneGeometry(60, 30), M.wall, 'Backdrop', false, true);
+wall.position.set(0, 15, -6);
+environment.add(wall);
+
+// Props to show off the lamp's light pool
+const props = new THREE.Group();
+props.name = 'DeskProps';
+environment.add(props);
+const book = new THREE.Group();
+book.name = 'Book';
+const cover = mk(new THREE.BoxGeometry(1.7, 0.24, 1.2), M.bookCover, 'BookCover');
+cover.position.y = 0.12;
+const pages = mk(new THREE.BoxGeometry(1.64, 0.2, 1.1), M.paper, 'BookPages');
+pages.position.set(0.04, 0.12, 0);
+book.add(cover, pages);
+book.position.set(2.0, 0, 0.5);
+book.rotation.y = -0.25;
+props.add(book);
+
+const mug = new THREE.Group();
+mug.name = 'Mug';
+const mugPts = [];
+for (let i = 0; i <= 12; i++) mugPts.push(new THREE.Vector2(0.28 + Math.sin(i / 12 * Math.PI) * 0.015, i / 12 * 0.62));
+mugPts.push(new THREE.Vector2(0.25, 0.62), new THREE.Vector2(0.25, 0.05), new THREE.Vector2(0.0, 0.05));
+const mugBody = mk(new THREE.LatheGeometry(mugPts, 40), M.ceramic, 'MugBody');
+const mugBase = mk(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 40), M.ceramic, 'MugBottom');
+mugBase.position.y = 0.01;
+const mugHandle = mk(new THREE.TorusGeometry(0.15, 0.035, 12, 32, Math.PI), M.ceramic, 'MugHandle');
+mugHandle.rotation.z = -Math.PI / 2;
+mugHandle.position.set(0.28, 0.32, 0);
+mug.add(mugBody, mugBase, mugHandle);
+mug.position.set(3.2, 0, -1.0);
+props.add(mug);
+
+// ---------- Lamp ----------
+const L1 = 3.0;  // lower arm length
+const L2 = 2.8;  // upper arm length
+
+const lamp = new THREE.Group();
+lamp.name = 'DeskLamp';
+scene.add(lamp);
+
+// --- Weighted base ---
+const base = new THREE.Group();
+base.name = 'WeightedBase';
+lamp.add(base);
+
+const foot = mk(new THREE.CylinderGeometry(1.24, 1.24, 0.04, 64), M.rubber, 'RubberFoot');
+foot.position.y = 0.02;
+base.add(foot);
+
+const baseProfile = [
+  new THREE.Vector2(0.0, 0.0), new THREE.Vector2(1.25, 0.0), new THREE.Vector2(1.3, 0.03),
+  new THREE.Vector2(1.31, 0.18), new THREE.Vector2(1.27, 0.25), new THREE.Vector2(1.15, 0.29),
+  new THREE.Vector2(0.5, 0.3), new THREE.Vector2(0.0, 0.3)
+];
+const baseBody = mk(new THREE.LatheGeometry(baseProfile, 72), M.enamel, 'CastIronWeight');
+baseBody.position.y = 0.04;
+base.add(baseBody);
+
+const baseRing = mk(new THREE.TorusGeometry(1.2, 0.022, 12, 72), M.chrome, 'ChromeTrim');
+baseRing.rotation.x = Math.PI / 2;
+baseRing.position.y = 0.315;
+base.add(baseRing);
+
+const switchGroup = new THREE.Group();
+switchGroup.name = 'PowerSwitch';
+const switchHousing = mk(new THREE.CylinderGeometry(0.13, 0.15, 0.06, 32), M.chrome, 'SwitchHousing');
+const switchButton = mk(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 32), M.rubber, 'SwitchButton');
+switchButton.position.y = 0.04;
+switchGroup.add(switchHousing, switchButton);
+switchGroup.position.set(0.75, 0.36, 0.45);
+base.add(switchGroup);
+
+// Power cable from base to desk
+const cableCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-1.2, 0.12, -0.2),
+  new THREE.Vector3(-1.6, 0.04, -0.4),
+  new THREE.Vector3(-2.4, 0.04, -0.2),
+  new THREE.Vector3(-3.4, 0.04, -1.2),
+  new THREE.Vector3(-4.5, 0.04, -2.5)
+]);
+const cable = mk(new THREE.TubeGeometry(cableCurve, 80, 0.035, 8, false), M.cable, 'PowerCable');
+base.add(cable);
+
+// --- Turntable (swivel) ---
+const turntable = new THREE.Group();
+turntable.name = 'Turntable';
+turntable.position.y = 0.34;
+lamp.add(turntable);
+
+const ttDisk = mk(new THREE.CylinderGeometry(0.4, 0.45, 0.08, 48), M.chrome, 'SwivelDisk');
+ttDisk.position.y = 0.04;
+turntable.add(ttDisk);
+
+const bracket = new THREE.Group();
+bracket.name = 'ShoulderBracket';
+turntable.add(bracket);
+for (const s of [-1, 1]) {
+  const plate = mk(new THREE.BoxGeometry(0.42, 0.55, 0.04), M.darkMetal, 'BracketPlate');
+  plate.position.set(0, 0.33, s * 0.2);
+  bracket.add(plate);
+}
+const bracketBridge = mk(new THREE.BoxGeometry(0.42, 0.06, 0.44), M.darkMetal, 'BracketBridge');
+bracketBridge.position.y = 0.1;
+bracket.add(bracketBridge);
+
+const baseSpringAnchors = [
+  springPeg(bracket, 0.17, 0.2, 0.22, 0.29, 'BaseSpringL'),
+  springPeg(bracket, 0.17, 0.2, -0.22, -0.29, 'BaseSpringR')
+];
+
+// --- Shoulder joint + lower arm ---
+const shoulderJoint = new THREE.Group();
+shoulderJoint.name = 'ShoulderJoint';
+shoulderJoint.position.y = 0.45;
+turntable.add(shoulderJoint);
+hinge('ShoulderHinge', 0.055, 0.46, 0.11, shoulderJoint);
+
+const lowerArm = new THREE.Group();
+lowerArm.name = 'LowerArm';
+shoulderJoint.add(lowerArm);
+for (const s of [-1, 1]) lowerArm.add(rodY(L1, 0.035, 0, s * 0.14, M.steel, 'LowerArmRod'));
+for (const y of [0.35, L1 - 0.4]) {
+  const brace = axleZ(0.025, 0.28, M.steel, 'LowerArmBrace');
+  brace.position.y = y;
+  lowerArm.add(brace);
+}
+const lowerSpringAnchors = [
+  springPeg(lowerArm, 0, 1.5, 0.14, 0.29, 'LowerArmSpringL'),
+  springPeg(lowerArm, 0, 1.5, -0.14, -0.29, 'LowerArmSpringR')
+];
+const elbowSpringAnchorsA = [
+  springPeg(lowerArm, 0, L1 - 1.1, 0.14, 0.29, 'ElbowSpringLowerL'),
+  springPeg(lowerArm, 0, L1 - 1.1, -0.14, -0.29, 'ElbowSpringLowerR')
+];
+
+// --- Elbow joint + upper arm ---
+const elbowJoint = new THREE.Group();
+elbowJoint.name = 'ElbowJoint';
+elbowJoint.position.y = L1;
+lowerArm.add(elbowJoint);
+hinge('ElbowHinge', 0.05, 0.36, 0.09, elbowJoint);
+
+const upperArm = new THREE.Group();
+upperArm.name = 'UpperArm';
+elbowJoint.add(upperArm);
+for (const s of [-1, 1]) upperArm.add(rodY(L2, 0.03, 0, s * 0.07, M.steel, 'UpperArmRod'));
+for (const y of [0.4, L2 - 0.35]) {
+  const brace = axleZ(0.022, 0.14, M.steel, 'UpperArmBrace');
+  brace.position.y = y;
+  upperArm.add(brace);
+}
+const elbowSpringAnchorsB = [
+  springPeg(upperArm, 0, 0.9, 0.07, 0.29, 'ElbowSpringUpperL'),
+  springPeg(upperArm, 0, 0.9, -0.07, -0.29, 'ElbowSpringUpperR')
+];
+
+// --- Wrist joint + head ---
+const wristJoint = new THREE.Group();
+wristJoint.name = 'WristJoint';
+wristJoint.position.y = L2;
+upperArm.add(wristJoint);
+hinge('WristHinge', 0.045, 0.2, 0.075, wristJoint);
+
+const head = new THREE.Group();
+head.name = 'LampHead';
+wristJoint.add(head);
+
+const neck = mk(new THREE.CylinderGeometry(0.055, 0.055, 0.35, 20), M.darkMetal, 'Neck');
+neck.position.y = 0.175;
+head.add(neck);
+
+const shade = new THREE.Group();
+shade.name = 'ConicalShade';
+shade.position.y = 0.35;
+head.add(shade);
+
+const shadeProfile = [
+  new THREE.Vector2(0.06, -0.02), new THREE.Vector2(0.2, 0.0), new THREE.Vector2(0.22, 0.12),
+  new THREE.Vector2(0.34, 0.35), new THREE.Vector2(0.58, 0.72), new THREE.Vector2(0.84, 1.08),
+  new THREE.Vector2(0.9, 1.15)
+];
+const shadeOuter = mk(new THREE.LatheGeometry(shadeProfile, 64), M.enamelShade, 'ShadeOuter', true, true);
+shade.add(shadeOuter);
+
+const shadeInner = mk(new THREE.LatheGeometry(shadeProfile.map(p => new THREE.Vector2(p.x * 0.965, p.y + 0.01)), 64), M.lining, 'ShadeLining', false, true);
+shade.add(shadeInner);
+
+const rim = mk(new THREE.TorusGeometry(0.9, 0.024, 12, 72), M.chrome, 'ShadeRim');
+rim.rotation.x = Math.PI / 2;
+rim.position.y = 1.15;
+shade.add(rim);
+
+const bulbAssembly = new THREE.Group();
+bulbAssembly.name = 'BulbAssembly';
+shade.add(bulbAssembly);
+const socket = mk(new THREE.CylinderGeometry(0.1, 0.11, 0.26, 24), M.darkMetal, 'Socket', false, true);
+socket.position.y = 0.15;
+bulbAssembly.add(socket);
+const bulbPts = [];
+for (let i = 0; i <= 20; i++) {
+  const t = i / 20;
+  const a = t * Math.PI;
+  const r = t < 0.35 ? 0.07 + t * 0.35 : 0.2 * Math.sin(a * 0.9 + 0.3);
+  bulbPts.push(new THREE.Vector2(Math.max(r, 0.001), t * 0.42));
+}
+const bulb = mk(new THREE.LatheGeometry(bulbPts, 32), M.bulb, 'Bulb', false, false);
+bulb.position.y = 0.28;
+bulbAssembly.add(bulb);
+
+// Warm point light inside the shade — the shade casts shadows so light only escapes through the opening
+const bulbLight = new THREE.PointLight(0xffb866, 30, 0, 2);
+bulbLight.name = 'BulbLight';
+bulbLight.position.y = 0.5;
+bulbLight.castShadow = true;
+bulbLight.shadow.mapSize.set(1024, 1024);
+bulbLight.shadow.camera.near = 0.05;
+bulbLight.shadow.camera.far = 30;
+bulbLight.shadow.bias = -0.002;
+bulbLight.shadow.normalBias = 0.03;
+bulbLight.shadow.radius = 3;
+shade.add(bulbLight);
+
+// ---------- Springs (dynamic, stretch with joints) ----------
+class HelixCurve extends THREE.Curve {
+  constructor(radius, turns, hook) { super(); this.r = radius; this.turns = turns; this.hook = hook; }
+  getPoint(t, target = new THREE.Vector3()) {
+    let rr = this.r;
+    if (t < this.hook) rr *= t / this.hook;
+    else if (t > 1 - this.hook) rr *= (1 - t) / this.hook;
+    const a = t * this.turns * Math.PI * 2;
+    return target.set(Math.cos(a) * rr, t, Math.sin(a) * rr);
+  }
+}
+const springGeo = new THREE.TubeGeometry(new HelixCurve(0.055, 24, 0.05), 600, 0.013, 6, false);
+
+const springs = new THREE.Group();
+springs.name = 'Springs';
+lamp.add(springs);
+
+const springPairs = [];
+function addSpring(a, b, name) {
+  const m = mk(springGeo, M.spring, name);
+  springs.add(m);
+  springPairs.push({ mesh: m, a, b });
+}
+addSpring(baseSpringAnchors[0], lowerSpringAnchors[0], 'ShoulderSpringLeft');
+addSpring(baseSpringAnchors[1], lowerSpringAnchors[1], 'ShoulderSpringRight');
+addSpring(elbowSpringAnchorsA[0], elbowSpringAnchorsB[0], 'ElbowSpringLeft');
+addSpring(elbowSpringAnchorsA[1], elbowSpringAnchorsB[1], 'ElbowSpringRight');
+
+const _va = new THREE.Vector3(), _vb = new THREE.Vector3(), _dir = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+const _inv = new THREE.Matrix4();
+function updateSprings() {
+  lamp.updateMatrixWorld(true);
+  _inv.copy(lamp.matrixWorld).invert();
+  for (const s of springPairs) {
+    s.a.getWorldPosition(_va).applyMatrix4(_inv);
+    s.b.getWorldPosition(_vb).applyMatrix4(_inv);
+    _dir.subVectors(_vb, _va);
+    const len = Math.max(_dir.length(), 0.01);
+    s.mesh.position.copy(_va);
+    s.mesh.quaternion.setFromUnitVectors(_up, _dir.normalize());
+    s.mesh.scale.set(1, len, 1);
+  }
+}
+
+// Subtle environment reflections everywhere, stronger on chrome
+scene.traverse(o => {
+  if (o.isMesh && o.material && 'envMapIntensity' in o.material) {
+    o.material.envMapIntensity = o.material === M.chrome ? 0.9 : (o.material === M.floor || o.material === M.wall ? 0.1 : 0.35);
+  }
+});
+
+// ---------- UI ----------
+const deg = THREE.MathUtils.degToRad;
+const ui = {
+  yaw: document.getElementById('yaw'),
+  shoulder: document.getElementById('shoulder'),
+  elbow: document.getElementById('elbow'),
+  wrist: document.getElementById('wrist'),
+  light: document.getElementById('light')
+};
+function applyUI() {
+  turntable.rotation.y = deg(+ui.yaw.value);
+  shoulderJoint.rotation.z = deg(+ui.shoulder.value);
+  elbowJoint.rotation.z = deg(+ui.elbow.value);
+  wristJoint.rotation.z = deg(+ui.wrist.value);
+  const li = +ui.light.value;
+  bulbLight.intensity = li;
+  bulbLight.visible = li > 0;
+  M.bulb.emissiveIntensity = 0.05 + li / 10;
+  M.lining.emissiveIntensity = 0.01 + li / 400;
+  for (const k of ['yaw', 'shoulder', 'elbow', 'wrist']) document.getElementById('v-' + k).textContent = ui[k].value + '°';
+  document.getElementById('v-light').textContent = li + ' cd';
+  updateSprings();
+}
+for (const k in ui) ui[k].addEventListener('input', applyUI);
+applyUI();
+
+// ---------- Resize ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- Loop ----------
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mid-Century Emerald Velvet Sofa</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #e9e4dc; font-family: system-ui, sans-serif; }
+  canvas { display: block; }
+  #label { position: fixed; left: 16px; bottom: 14px; color: #5a5348; font-size: 13px; letter-spacing: .04em; opacity: .8; user-select: none; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="label">Three-seat mid-century sofa · emerald velvet · drag to orbit</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// ---------- Renderer / Scene / Camera ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe9e4dc);
+scene.fog = new THREE.Fog(0xe9e4dc, 8, 18);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+scene.environmentIntensity = 0.45;
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.05, 100);
+camera.position.set(2.3, 1.45, 2.9);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.45, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 1.2;
+controls.maxDistance = 8;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.update();
+
+// ---------- Lighting ----------
+scene.add(new THREE.HemisphereLight(0xfff6ea, 0x8a8070, 0.55));
+
+const key = new THREE.DirectionalLight(0xfff1dd, 2.2);
+key.position.set(2.5, 4.5, 3.0);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -3; key.shadow.camera.right = 3;
+key.shadow.camera.top = 3; key.shadow.camera.bottom = -3;
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 12;
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.02;
+key.shadow.radius = 6;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xdfe8ff, 0.6);
+fill.position.set(-3, 2.2, 1.5);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.5);
+rim.position.set(-1, 2.5, -3);
+scene.add(rim);
+
+// ---------- Environment: floor + backdrop ----------
+const envGroup = new THREE.Group();
+envGroup.name = 'Environment';
+scene.add(envGroup);
+
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(40, 40),
+  new THREE.MeshStandardMaterial({ color: 0xd6cfc3, roughness: 0.95, metalness: 0 })
+);
+floor.name = 'Floor';
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+envGroup.add(floor);
+
+const wall = new THREE.Mesh(
+  new THREE.PlaneGeometry(40, 12),
+  new THREE.MeshStandardMaterial({ color: 0xefe9df, roughness: 1, metalness: 0 })
+);
+wall.name = 'BackdropWall';
+wall.position.set(0, 6, -1.4);
+wall.receiveShadow = true;
+envGroup.add(wall);
+
+// ---------- Materials ----------
+const velvet = new THREE.MeshPhysicalMaterial({
+  color: 0x0e5a3e, roughness: 0.82, metalness: 0,
+  sheen: 1.0, sheenRoughness: 0.35, sheenColor: new THREE.Color(0x63d9a4)
+});
+const velvetFrame = velvet.clone();
+velvetFrame.color = new THREE.Color(0x0c5038);
+
+const mustardVelvet = new THREE.MeshPhysicalMaterial({
+  color: 0xd49a23, roughness: 0.8, metalness: 0,
+  sheen: 1.0, sheenRoughness: 0.4, sheenColor: new THREE.Color(0xffe0a0)
+});
+const blushBoucle = new THREE.MeshPhysicalMaterial({
+  color: 0xe6c9b8, roughness: 1.0, metalness: 0,
+  sheen: 0.6, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xfff2ea)
+});
+const walnut = new THREE.MeshStandardMaterial({ color: 0x4a2c1a, roughness: 0.55, metalness: 0 });
+const brass = new THREE.MeshStandardMaterial({ color: 0xd1a54f, roughness: 0.28, metalness: 1.0 });
+
+// ---------- Procedural geometry helpers ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/**
+ * Soft upholstered box: rounded edges, optional bulges and vertical channel tufting on +Z face.
+ */
+function softBox(w, h, d, opts = {}) {
+  const {
+    r = 0.04, segX = 40, segY = 24, segZ = 16,
+    bulgeX = 0, bulgeY = 0, bulgeZ = 0,
+    channels = 0, grooveDepth = 0, grooveWidth = 0.09
+  } = opts;
+  let g = new THREE.BoxGeometry(w, h, d, segX, segY, segZ);
+  const pos = g.attributes.position;
+  const hw = w / 2, hh = h / 2, hd = d / 2;
+  const v = new THREE.Vector3(), c = new THREE.Vector3(), dv = new THREE.Vector3();
+
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const nx = v.x / hw, ny = v.y / hh, nz = v.z / hd;
+
+    // Round the edges
+    c.set(clamp(v.x, -(hw - r), hw - r), clamp(v.y, -(hh - r), hh - r), clamp(v.z, -(hd - r), hd - r));
+    dv.subVectors(v, c);
+    if (dv.lengthSq() > 1e-12) v.copy(c).add(dv.normalize().multiplyScalar(r));
+
+    // Pillowy bulges
+    const fx = 1 - nx * nx, fy = 1 - ny * ny, fz = 1 - nz * nz;
+    v.z *= 1 + bulgeZ * fx * fy;
+    v.y *= 1 + bulgeY * fx * fz;
+    v.x *= 1 + bulgeX * fy * fz;
+
+    // Vertical channel tufting on the front face
+    if (channels > 0 && nz > 0) {
+      const u = (nx + 1) / 2 * channels;
+      const k = Math.round(u);
+      const dd = Math.abs(u - k);
+      let groove = 0;
+      if (k > 0 && k < channels) groove = Math.exp(-(dd * dd) / (grooveWidth * grooveWidth));
+      // soft puff between channels
+      const puff = Math.pow(Math.sin(Math.PI * (u - Math.floor(u))), 2);
+      const edgeFade = Math.pow(Math.max(0, fy), 0.6);
+      const front = nz * nz;
+      v.z += (-grooveDepth * groove + grooveDepth * 0.25 * puff) * edgeFade * front;
+    }
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  g = mergeVertices(g, 1e-5);
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * Throw pillow: lens-shaped, thin at seams, puffy centre, slightly pinched corners.
+ */
+function pillowGeometry(w, h, d) {
+  let g = new THREE.BoxGeometry(w, h, d, 36, 36, 6);
+  const pos = g.attributes.position;
+  const hw = w / 2, hh = h / 2;
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const nx = x / hw, ny = y / hh;
+    const f = Math.pow(Math.max(0, 1 - nx * nx), 0.55) * Math.pow(Math.max(0, 1 - ny * ny), 0.55);
+    z *= 0.1 + 0.9 * f;
+    // pinch the edges inward in the middle so corners poke out ("dog ears")
+    x *= 1 - 0.07 * (1 - ny * ny);
+    y *= 1 - 0.07 * (1 - nx * nx);
+    pos.setXYZ(i, x, y, z);
+  }
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  g = mergeVertices(g, 1e-5);
+  g.computeVertexNormals();
+  return g;
+}
+
+function mesh(geo, mat, name) {
+  const m = new THREE.Mesh(geo, mat);
+  m.name = name;
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+// ---------- Sofa ----------
+const sofa = new THREE.Group();
+sofa.name = 'MidCenturySofa';
+scene.add(sofa);
+
+const LEG_H = 0.18;
+const INNER_W = 1.9;
+
+// Frame (deck + back frame)
+const frame = new THREE.Group();
+frame.name = 'Frame';
+sofa.add(frame);
+
+const deck = mesh(softBox(INNER_W, 0.18, 0.78, { r: 0.03, segX: 30, segY: 8, segZ: 14 }), velvetFrame, 'Deck');
+deck.position.set(0, LEG_H + 0.09, 0.06);
+frame.add(deck);
+
+const backFrame = mesh(softBox(INNER_W, 0.48, 0.14, { r: 0.045, segX: 30, segY: 14, segZ: 8, bulgeZ: 0.05 }), velvetFrame, 'BackFrame');
+backFrame.position.set(0, LEG_H + 0.24, -0.38);
+frame.add(backFrame);
+
+// Rounded track arms
+const arms = new THREE.Group();
+arms.name = 'Arms';
+sofa.add(arms);
+const armGeo = softBox(0.17, 0.44, 0.9, { r: 0.075, segX: 14, segY: 24, segZ: 30, bulgeX: 0.06, bulgeY: 0.03 });
+[-1, 1].forEach(s => {
+  const arm = mesh(armGeo, velvet, s < 0 ? 'Arm_Left' : 'Arm_Right');
+  arm.position.set(s * 1.015, LEG_H + 0.22, 0);
+  arms.add(arm);
+});
+
+// Seat cushions
+const seatCushions = new THREE.Group();
+seatCushions.name = 'SeatCushions';
+sofa.add(seatCushions);
+const CUSH_W = 0.615, CUSH_STEP = 0.627;
+const seatGeo = softBox(CUSH_W, 0.15, 0.66, { r: 0.05, segX: 36, segY: 12, segZ: 36, bulgeY: 0.16, bulgeZ: 0.03, bulgeX: 0.03 });
+[-1, 0, 1].forEach((i, idx) => {
+  const c = mesh(seatGeo, velvet, `SeatCushion_${idx + 1}`);
+  c.position.set(i * CUSH_STEP, LEG_H + 0.18 + 0.07, 0.13);
+  c.rotation.y = (idx - 1) * 0.004;
+  seatCushions.add(c);
+});
+
+// Back cushions with channel tufting
+const backCushions = new THREE.Group();
+backCushions.name = 'BackCushions';
+sofa.add(backCushions);
+const BACK_H = 0.37;
+const backGeo = softBox(CUSH_W, BACK_H, 0.17, {
+  r: 0.05, segX: 80, segY: 36, segZ: 12,
+  bulgeZ: 0.22, bulgeY: 0.04, bulgeX: 0.02,
+  channels: 4, grooveDepth: 0.018, grooveWidth: 0.08
+});
+backGeo.translate(0, BACK_H / 2, 0);
+[-1, 0, 1].forEach((i, idx) => {
+  const c = mesh(backGeo, velvet, `BackCushion_${idx + 1}`);
+  c.position.set(i * CUSH_STEP, LEG_H + 0.18 + 0.135, -0.235);
+  c.rotation.x = -0.15;
+  backCushions.add(c);
+});
+
+// Tapered legs with brass tips
+const legs = new THREE.Group();
+legs.name = 'Legs';
+sofa.add(legs);
+const SPLAY = 0.1;
+const LEG_L = LEG_H / (Math.cos(SPLAY) * Math.cos(SPLAY));
+const legGeo = new THREE.CylinderGeometry(0.024, 0.013, LEG_L, 24);
+legGeo.translate(0, -LEG_L / 2, 0);
+const TIP_H = 0.038;
+const tipGeo = new THREE.CylinderGeometry(0.0148, 0.0125, TIP_H, 24);
+tipGeo.translate(0, -LEG_L + TIP_H / 2, 0);
+const plateGeo = new THREE.CylinderGeometry(0.034, 0.034, 0.008, 24);
+plateGeo.translate(0, -0.004, 0);
+
+[[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sz]) => {
+  const leg = new THREE.Group();
+  leg.name = `Leg_${sz > 0 ? 'Front' : 'Back'}${sx < 0 ? 'Left' : 'Right'}`;
+  leg.position.set(sx * 0.98, LEG_H, sz * 0.35);
+  leg.rotation.z = sx * SPLAY;
+  leg.rotation.x = -sz * SPLAY;
+  leg.add(mesh(legGeo, walnut, 'TaperedLeg'));
+  leg.add(mesh(tipGeo, brass, 'BrassTip'));
+  leg.add(mesh(plateGeo, brass, 'MountPlate'));
+  legs.add(leg);
+});
+
+// Throw pillows (contrasting)
+const pillows = new THREE.Group();
+pillows.name = 'ThrowPillows';
+sofa.add(pillows);
+
+const pillowA = mesh(pillowGeometry(0.44, 0.44, 0.15), mustardVelvet, 'ThrowPillow_Mustard');
+pillowA.position.set(-0.68, LEG_H + 0.18 + 0.15 + 0.21, -0.07);
+pillowA.rotation.set(-0.3, 0.28, 0.1);
+pillows.add(pillowA);
+
+const pillowB = mesh(pillowGeometry(0.40, 0.40, 0.14), blushBoucle, 'ThrowPillow_Blush');
+pillowB.position.set(0.72, LEG_H + 0.18 + 0.15 + 0.19, -0.07);
+pillowB.rotation.set(-0.28, -0.3, -0.16);
+pillows.add(pillowB);
+
+// ---------- Resize ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- Loop ----------
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

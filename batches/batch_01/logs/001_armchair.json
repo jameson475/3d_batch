@@ -1,0 +1,97 @@
+{
+  "duration_api_ms": 131972,
+  "stop_reason": "end_turn",
+  "session_id": "3152d475-ff34-4264-b59d-3e0e15040d68",
+  "total_cost_usd": 0.3692636,
+  "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 7712,
+    "cache_read_input_tokens": 10498,
+    "output_tokens": 15273,
+    "output_tokens_details": {
+      "thinking_tokens": 7633
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7712,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 15273,
+        "cache_read_input_tokens": 10498,
+        "cache_creation_input_tokens": 7712,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 7712
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 2,
+      "outputTokens": 15273,
+      "cacheReadInputTokens": 10498,
+      "cacheCreationInputTokens": 7712,
+      "webSearchRequests": 0,
+      "costUSD": 0.3692636,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 7633,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 1,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n<title>Mid-Century Modern Armchair \u2014 three.js</title>\n<style>\n  html, body { margin: 0; height: 100%; overflow: hidden; background: #ece6dc; font-family: system-ui, sans-serif; }\n  canvas { display: block; }\n  #label {\n    position: fixed; left: 16px; bottom: 14px; color: #6b5d4d; font-size: 13px;\n    letter-spacing: 0.04em; user-select: none; pointer-events: none;\n  }\n</style>\n<script type=\"importmap\">\n{\n  \"imports\": {\n    \"three\": \"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js\",\n    \"three/addons/\": \"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/\"\n  }\n}\n</script>\n</head>\n<body>\n<div id=\"label\">Mid-Century Modern Armchair \u00b7 drag to orbit, scroll to zoom</div>\n<script type=\"module\">\nimport * as THREE from 'three';\nimport { OrbitControls } from 'three/addons/controls/OrbitControls.js';\nimport { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';\nimport { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';\nimport { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';\n\n// ---------- Renderer / Scene / Camera ----------\nconst renderer = new THREE.WebGLRenderer({ antialias: true });\nrenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));\nrenderer.setSize(window.innerWidth, window.innerHeight);\nrenderer.shadowMap.enabled = true;\nrenderer.shadowMap.type = THREE.PCFSoftShadowMap;\nrenderer.outputColorSpace = THREE.SRGBColorSpace;\nrenderer.toneMapping = THREE.ACESFilmicToneMapping;\nrenderer.toneMappingExposure = 0.95;\ndocument.body.appendChild(renderer.domElement);\n\nconst scene = new THREE.Scene();\nscene.background = new THREE.Color(0xece6dc);\nscene.fog = new THREE.Fog(0xece6dc, 5, 12);\n\nconst pmrem = new THREE.PMREMGenerator(renderer);\nscene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;\n\nconst camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.05, 50);\ncamera.position.set(1.55, 1.15, 1.75);\n\nconst controls = new OrbitControls(camera, renderer.domElement);\ncontrols.target.set(0, 0.42, 0);\ncontrols.enableDamping = true;\ncontrols.dampingFactor = 0.06;\ncontrols.minDistance = 0.9;\ncontrols.maxDistance = 5;\ncontrols.maxPolarAngle = Math.PI * 0.49;\ncontrols.update();\n\n// ---------- Lighting ----------\nconst hemi = new THREE.HemisphereLight(0xfff6e8, 0x9a8c7a, 0.45);\nscene.add(hemi);\n\nconst key = new THREE.DirectionalLight(0xfff1dc, 2.2);\nkey.position.set(2.2, 3.8, 2.4);\nkey.castShadow = true;\nkey.shadow.mapSize.set(2048, 2048);\nkey.shadow.camera.left = -1.4;\nkey.shadow.camera.right = 1.4;\nkey.shadow.camera.top = 1.4;\nkey.shadow.camera.bottom = -1.4;\nkey.shadow.camera.near = 0.5;\nkey.shadow.camera.far = 10;\nkey.shadow.bias = -0.0004;\nkey.shadow.normalBias = 0.02;\nkey.shadow.radius = 5;\nscene.add(key);\n\nconst fill = new THREE.DirectionalLight(0xdfe8ff, 0.55);\nfill.position.set(-2.5, 1.8, -1.0);\nscene.add(fill);\n\nconst rim = new THREE.DirectionalLight(0xffffff, 0.6);\nrim.position.set(-0.5, 2.0, -3.0);\nscene.add(rim);\n\n// ---------- Environment: floor + soft backdrop ----------\nconst env = new THREE.Group();\nenv.name = 'Environment';\nscene.add(env);\n\nconst floor = new THREE.Mesh(\n  new THREE.CircleGeometry(12, 64),\n  new THREE.MeshStandardMaterial({ color: 0xe4ddd1, roughness: 0.95, metalness: 0 })\n);\nfloor.name = 'Floor';\nfloor.rotation.x = -Math.PI / 2;\nfloor.receiveShadow = true;\nenv.add(floor);\n\n// curved cyclorama backdrop\nconst backdropGeo = new THREE.CylinderGeometry(6, 6, 6, 64, 1, true, Math.PI * 0.75, Math.PI * 1.5);\nconst backdrop = new THREE.Mesh(\n  backdropGeo,\n  new THREE.MeshStandardMaterial({ color: 0xede7dd, roughness: 1, side: THREE.BackSide })\n);\nbackdrop.name = 'Backdrop';\nbackdrop.position.y = 3;\nenv.add(backdrop);\n\n// ---------- Materials ----------\nfunction makeWoodTexture() {\n  const c = document.createElement('canvas');\n  c.width = c.height = 512;\n  const ctx = c.getContext('2d');\n  const g = ctx.createLinearGradient(0, 0, 512, 0);\n  g.addColorStop(0, '#5e3820');\n  g.addColorStop(0.5, '#6d4328');\n  g.addColorStop(1, '#5a351f');\n  ctx.fillStyle = g;\n  ctx.fillRect(0, 0, 512, 512);\n  // fine grain lines\n  for (let i = 0; i < 260; i++) {\n    const x0 = Math.random() * 512;\n    const amp = 2 + Math.random() * 6;\n    const freq = 0.004 + Math.random() * 0.01;\n    const phase = Math.random() * Math.PI * 2;\n    const dark = Math.random() < 0.7;\n    ctx.strokeStyle = dark\n      ? `rgba(40,22,12,${0.08 + Math.random() * 0.22})`\n      : `rgba(150,100,65,${0.05 + Math.random() * 0.12})`;\n    ctx.lineWidth = 0.5 + Math.random() * 1.8;\n    ctx.beginPath();\n    for (let y = 0; y <= 512; y += 8) {\n      const x = x0 + Math.sin(y * freq + phase) * amp;\n      if (y === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);\n    }\n    ctx.stroke();\n  }\n  // a few broad figure streaks\n  for (let i = 0; i < 10; i++) {\n    const x0 = Math.random() * 512;\n    ctx.strokeStyle = `rgba(35,18,8,${0.06 + Math.random() * 0.08})`;\n    ctx.lineWidth = 6 + Math.random() * 14;\n    ctx.beginPath();\n    for (let y = 0; y <= 512; y += 8) {\n      const x = x0 + Math.sin(y * 0.012 + i) * 10;\n      if (y === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);\n    }\n    ctx.stroke();\n  }\n  const tex = new THREE.CanvasTexture(c);\n  tex.colorSpace = THREE.SRGBColorSpace;\n  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;\n  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();\n  return tex;\n}\n\nconst woodTexV = makeWoodTexture();              // grain runs along V\nconst woodTexH = woodTexV.clone();                // grain runs along U\nwoodTexH.center.set(0.5, 0.5);\nwoodTexH.rotation = Math.PI / 2;\nwoodTexH.needsUpdate = true;\n\nconst woodMatV = new THREE.MeshPhysicalMaterial({\n  name: 'Walnut (vertical grain)', map: woodTexV, roughness: 0.42, metalness: 0,\n  clearcoat: 0.35, clearcoatRoughness: 0.35\n});\nconst woodMatH = woodMatV.clone();\nwoodMatH.name = 'Walnut (horizontal grain)';\nwoodMatH.map = woodTexH;\n\nconst brassMat = new THREE.MeshStandardMaterial({\n  name: 'Brushed Brass', color: 0xc9a25a, metalness: 1, roughness: 0.32\n});\n\nconst fabricMat = new THREE.MeshPhysicalMaterial({\n  name: 'Mustard Fabric',\n  color: 0xc9971c,\n  roughness: 0.88,\n  metalness: 0,\n  sheen: 1,\n  sheenColor: new THREE.Color(0xffd970),\n  sheenRoughness: 0.55\n});\n\nconst buttonMat = new THREE.MeshPhysicalMaterial({\n  name: 'Fabric Button',\n  color: 0xa77a12,\n  roughness: 0.75,\n  sheen: 0.6,\n  sheenColor: new THREE.Color(0xffd970)\n});\n\n// ---------- Helpers ----------\nconst UP = new THREE.Vector3(0, 1, 0);\n\n// Tapered cylinder from point a (radius ra) to point b (radius rb)\nfunction taperedCylinder(name, a, b, ra, rb, mat, radial = 24) {\n  const dir = new THREE.Vector3().subVectors(b, a);\n  const len = dir.length();\n  const geo = new THREE.CylinderGeometry(rb, ra, len, radial, 1);\n  const mesh = new THREE.Mesh(geo, mat);\n  mesh.name = name;\n  mesh.position.copy(a).addScaledVector(dir, 0.5);\n  mesh.quaternion.setFromUnitVectors(UP, dir.normalize());\n  return mesh;\n}\n\nfunction roundedBox(name, w, h, d, r, mat, pos) {\n  const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, r), mat);\n  mesh.name = name;\n  mesh.position.copy(pos);\n  return mesh;\n}\n\n// Pillowy cushion with button tufting on its +Y face\nfunction makeCushion(name, w, h, d, opts = {}) {\n  const {\n    bulge = 0.018,\n    tufts = [],\n    tuftDepth = 0.012,\n    tuftRadius = 0.035\n  } = opts;\n  const hw = w / 2, hh = h / 2, hd = d / 2;\n\n  const displace = (x, y, z, out) => {\n    const nx = x / hw, ny = y / hh, nz = z / hd;\n    const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);\n    const sx = Math.pow(ax, 6), sz = Math.pow(az, 6);\n    const edgeY = ay * ay * ay;\n    let X = x, Y = y, Z = z;\n\n    // soften top/bottom perimeter edges\n    X -= Math.sign(x) * hh * 0.5 * edgeY * sx;\n    Z -= Math.sign(z) * hh * 0.5 * edgeY * sz;\n\n    // round corners in plan\n    const corner = sx * sz;\n    X -= Math.sign(x) * hh * 0.4 * corner;\n    Z -= Math.sign(z) * hh * 0.4 * corner;\n\n    // puffy faces (bottom puffs less)\n    const fx = 1 - nx * nx, fz = 1 - nz * nz;\n    Y += ny * bulge * fx * fz * (ny > 0 ? 1 : 0.35);\n\n    // gently bulging side walls\n    const side = 1 - ny * ny;\n    X += Math.sign(x) * hh * 0.16 * side * Math.pow(ax, 4) * (1 - Math.pow(az, 8));\n    Z += Math.sign(z) * hh * 0.16 * side * Math.pow(az, 4) * (1 - Math.pow(ax, 8));\n\n    // button tufting dimples\n    if (ny > 0 && tufts.length) {\n      let s = 0;\n      for (const [u, v] of tufts) {\n        const dx = x - u * hw, dz = z - v * hd;\n        s += Math.exp(-(dx * dx + dz * dz) / (tuftRadius * tuftRadius));\n      }\n      Y -= tuftDepth * Math.min(s, 1.2) * ny;\n    }\n    out.set(X, Y, Z);\n  };\n\n  let geo = new THREE.BoxGeometry(w, h, d, 64, 8, 64);\n  const pos = geo.attributes.position;\n  const v = new THREE.Vector3();\n  for (let i = 0; i < pos.count; i++) {\n    displace(pos.getX(i), pos.getY(i), pos.getZ(i), v);\n    pos.setXYZ(i, v.x, v.y, v.z);\n  }\n  geo.deleteAttribute('normal');\n  geo.deleteAttribute('uv');\n  geo = mergeVertices(geo, 1e-5);\n  geo.computeVertexNormals();\n\n  const group = new THREE.Group();\n  group.name = name;\n\n  const body = new THREE.Mesh(geo, fabricMat);\n  body.name = `${name} Body`;\n  group.add(body);\n\n  if (tufts.length) {\n    const buttons = new THREE.Group();\n    buttons.name = `${name} Buttons`;\n    const btnGeo = new THREE.SphereGeometry(0.011, 18, 12);\n    tufts.forEach(([u, vv], i) => {\n      const p = new THREE.Vector3();\n      displace(u * hw, hh, vv * hd, p);\n      const b = new THREE.Mesh(btnGeo, buttonMat);\n      b.name = `Button ${i + 1}`;\n      b.scale.set(1, 0.45, 1);\n      b.position.set(p.x, p.y - 0.001, p.z);\n      buttons.add(b);\n    });\n    group.add(buttons);\n  }\n  return group;\n}\n\n// ---------- Armchair ----------\nconst chair = new THREE.Group();\nchair.name = 'MidCenturyArmchair';\nscene.add(chair);\n\nconst SEAT_Y = 0.38;          // top of seat rails\nconst RECLINE = THREE.MathUtils.degToRad(15);\n\n// --- Legs ---\nconst legs = new THREE.Group();\nlegs.name = 'Legs';\nchair.add(legs);\n\nconst legDefs = [\n  { name: 'Front Left Leg',  top: [-0.30, SEAT_Y - 0.01,  0.26], foot: [-0.355, 0,  0.33] },\n  { name: 'Front Right Leg', top: [ 0.30, SEAT_Y - 0.01,  0.26], foot: [ 0.355, 0,  0.33] },\n  { name: 'Back Left Leg',   top: [-0.30, SEAT_Y - 0.01, -0.26], foot: [-0.355, 0, -0.35] },\n  { name: 'Back Right Leg',  top: [ 0.30, SEAT_Y - 0.01, -0.26], foot: [ 0.355, 0, -0.35] }\n];\nfor (const def of legDefs) {\n  const leg = new THREE.Group();\n  leg.name = def.name;\n  const foot = new THREE.Vector3(...def.foot);\n  const top = new THREE.Vector3(...def.top);\n  leg.add(taperedCylinder(`${def.name} Shaft`, foot, top, 0.011, 0.023, woodMatV));\n  // brass sabot on the foot\n  const capTop = foot.clone().lerp(top, 0.1);\n  leg.add(taperedCylinder(`${def.name} Brass Sabot`, foot.clone().setY(0.001), capTop, 0.0118, 0.0138, brassMat));\n  legs.add(leg);\n}\n\n// --- Seat frame ---\nconst seatFrame = new THREE.Group();\nseatFrame.name = 'Seat Frame';\nchair.add(seatFrame);\nconst railH = 0.07, railT = 0.04, railY = SEAT_Y - railH / 2;\nseatFrame.add(roundedBox('Front Rail', 0.70, railH, railT, 0.012, woodMatH, new THREE.Vector3(0, railY, 0.30)));\nseatFrame.add(roundedBox('Back Rail', 0.70, railH, railT, 0.012, woodMatH, new THREE.Vector3(0, railY, -0.28)));\nseatFrame.add(roundedBox('Left Side Rail', railT, railH, 0.62, 0.012, woodMatV, new THREE.Vector3(-0.33, railY, 0.01)));\nseatFrame.add(roundedBox('Right Side Rail', railT, railH, 0.62, 0.012, woodMatV, new THREE.Vector3(0.33, railY, 0.01)));\n// hidden-ish support slats under cushion\nfor (let i = 0; i < 4; i++) {\n  const z = -0.2 + i * 0.14;\n  seatFrame.add(roundedBox(`Support Slat ${i + 1}`, 0.64, 0.015, 0.06, 0.005, woodMatH, new THREE.Vector3(0, SEAT_Y - 0.02, z)));\n}\n\n// --- Armrests ---\nconst armrests = new THREE.Group();\narmrests.name = 'Armrests';\nchair.add(armrests);\nconst ARM_Y = 0.615;\nfor (const side of [-1, 1]) {\n  const arm = new THREE.Group();\n  arm.name = side < 0 ? 'Left Armrest' : 'Right Armrest';\n  const x = side * 0.352;\n  // sculpted arm pad\n  const pad = roundedBox(`${arm.name} Pad`, 0.068, 0.03, 0.70, 0.013, woodMatV, new THREE.Vector3(x, ARM_Y, -0.02));\n  arm.add(pad);\n  // tapered front post\n  arm.add(taperedCylinder(\n    `${arm.name} Front Post`,\n    new THREE.Vector3(x, SEAT_Y - 0.02, 0.245),\n    new THREE.Vector3(x, ARM_Y - 0.005, 0.275),\n    0.02, 0.016, woodMatV\n  ));\n  armrests.add(arm);\n}\n\n// --- Backrest (reclined) ---\nconst backrest = new THREE.Group();\nbackrest.name = 'Backrest';\nbackrest.position.set(0, SEAT_Y - 0.02, -0.29);\nbackrest.rotation.x = -RECLINE;\nchair.add(backrest);\n\nconst backFrame = new THREE.Group();\nbackFrame.name = 'Back Frame';\nbackrest.add(backFrame);\nfor (const side of [-1, 1]) {\n  backFrame.add(roundedBox(\n    side < 0 ? 'Left Back Upright' : 'Right Back Upright',\n    0.045, 0.68, 0.04, 0.013, woodMatV, new THREE.Vector3(side * 0.33, 0.30, 0)\n  ));\n}\nbackFrame.add(roundedBox('Back Top Rail', 0.70, 0.055, 0.035, 0.014, woodMatH, new THREE.Vector3(0, 0.62, -0.005)));\nbackFrame.add(roundedBox('Back Lower Rail', 0.66, 0.045, 0.03, 0.01, woodMatH, new THREE.Vector3(0, 0.14, -0.005)));\n\nconst backCushion = makeCushion('Back Cushion', 0.60, 0.10, 0.50, {\n  bulge: 0.02,\n  tufts: [\n    [-0.5, -0.38], [0, -0.38], [0.5, -0.38],\n    [-0.5,  0.32], [0,  0.32], [0.5,  0.32]\n  ],\n  tuftDepth: 0.011,\n  tuftRadius: 0.032\n});\nbackCushion.rotation.x = Math.PI / 2;    // tufted face points forward (+Z)\nbackCushion.position.set(0, 0.40, 0.068);\nbackrest.add(backCushion);\n\n// --- Seat cushion ---\nconst seatCushion = makeCushion('Seat Cushion', 0.60, 0.115, 0.58, {\n  bulge: 0.022,\n  tufts: [\n    [-0.5, -0.3], [0, -0.3], [0.5, -0.3],\n    [-0.5,  0.35], [0,  0.35], [0.5,  0.35]\n  ],\n  tuftDepth: 0.012,\n  tuftRadius: 0.034\n});\nseatCushion.position.set(0, SEAT_Y + 0.055, 0.035);\nseatCushion.rotation.x = -THREE.MathUtils.degToRad(3); // front slightly raised\nchair.add(seatCushion);\n\n// shadows\nchair.traverse((o) => {\n  if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }\n});\n\n// ---------- Resize ----------\nwindow.addEventListener('resize', () => {\n  camera.aspect = window.innerWidth / window.innerHeight;\n  camera.updateProjectionMatrix();\n  renderer.setSize(window.innerWidth, window.innerHeight);\n});\n\n// ---------- Loop ----------\nrenderer.setAnimationLoop(() => {\n  controls.update();\n  renderer.render(scene, camera);\n});\n</script>\n</body>\n</html>\n```",
+  "ttft_ms": 79939,
+  "type": "result",
+  "duration_ms": 132057,
+  "uuid": "25a2f755-e5e5-4df9-999e-65a9da9acab5",
+  "ttft_stream_ms": 748,
+  "time_to_request_ms": 38,
+  "first_content_frame_ms": 748,
+  "queued_turn_count": 0,
+  "result_index": 0
+}
